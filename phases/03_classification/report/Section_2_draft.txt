@@ -1,0 +1,176 @@
+### 2. Evaluation Methodology, Models, and Results
+
+#### (a) Metric Choice and Baselines
+
+**(i) Headline metric.** We report **macro-F1** as the primary metric because the
+dataset is heavily imbalanced (the most common class, `footsteps`, has 24.5×
+more positive segments than `light_switch`). Macro-F1 weights all 15 classes
+equally, which is the right protocol when minority-class performance matters
+to the application -- a sound-event detector that scores well on common
+classes but never recognizes `light_switch` would be useless for any
+downstream activity-recognition use case. We additionally report micro-F1
+(instance-pooled) and weighted-F1 (support-weighted average) as diagnostics.
+Per-class F1 is shown for the full leaderboard in Figure~\ref{fig:per_class}.
+
+**(ii) Two-tier baseline.** Following Murphy ("Machine Learning: A
+Probabilistic Perspective") and Goodfellow et al., we report two baselines
+that answer two distinct questions:
+
+1. **Trivial floor -- "is the task learnable?"** -- the *empirical-prior
+   classifier* predicts class $c$ with the per-class positive rate from the
+   training partition, irrespective of the input. Test macro-F1 = **0.053**.
+   Any model failing to clear this floor is either broken or has no signal.
+2. **Justification bar -- "is added complexity worth it?"** -- a one-vs-rest
+   *Logistic Regression* (saga, L2, class-weight=balanced) trained on the
+   960-D aggregated feature vector. Test macro-F1 = **0.472**. Any model
+   adding capacity beyond LogReg must clear this bar to justify the extra
+   cost in training time, interpretability loss, and inference latency.
+
+The empirical prior is the floor; LogReg is the bar.
+
+#### (b) Imbalance Handling
+
+We did *not* use feature-domain SMOTE or random oversampling. Because the
+960-D feature vector is the mean / std / min / max of frame-level features
+over a 1-s window, oversampling = copying. Copying a vector is exactly
+equivalent to upweighting its loss contribution, which `class_weight=
+'balanced'` already does at zero extra cost. We therefore use:
+
+- **Loss-side weighting** for trained models: `class_weight='balanced'` for
+  scikit-learn models, `pos_weight=sqrt(N\_neg / N\_pos)` clipped to
+  $[0.5, 30]$ for BCEWithLogitsLoss in neural models. The square-root
+  damping prevents `light_switch`'s naive `n_neg/n_pos \approx 370\times`
+  weight from destabilising training.
+- **Focal loss** ($\gamma = 2$) as one of three configs for neural models,
+  to test whether explicit hard-negative mining adds anything over
+  pos-weighting.
+- **Per-class threshold tuning on the validation set** as the final stage
+  of every model's pipeline. With $0.5$ as the default decision threshold,
+  models with calibrated probabilities under-predict rare classes whose
+  posterior is far below $0.5$. Sweeping $\tau \in \{0.05, 0.06, ..., 0.95\}$
+  per class, then picking the per-class F1-optimal $\tau$ on val, is the
+  single highest-impact decision-rule lever in our pipeline (see Table
+  \ref{tab:threshold_lift}).
+
+We considered **audio-domain augmentation** -- the "Strategy B" arm -- and
+report the result as a documented negative finding in section 2(e).
+
+#### (c) Train / Validation / Test Protocol
+
+The collector-grouped 60 / 20 / 20 split (244 / 82 / 82 collectors;
+100,166 / 34,245 / 33,828 segments) is fixed across all models. **All
+models read the same `splits.npz` file**, scaled by the same
+`StandardScaler` fitted on the training partition only (Section 1(c)).
+This eliminates split-level variance as a confound: any difference
+between two models reflects modelling capacity, not luck in sampling.
+
+**One-shot test evaluation.** Each model selects its winning configuration
+on the validation set (best val macro-F1 for tree models and the per-class
+threshold-tuned variant; best val mean-AP for the threshold-free comparison
+between neural-net loss variants, with a separate threshold-tuning step on
+top). The selected configuration is evaluated on the test set **once**.
+No model peeks at the test set during training, validation, or threshold
+tuning. Test numbers in this report are therefore unbiased estimators of
+generalisation to held-out collectors.
+
+#### (d) Model Suite
+
+Four classifier families were trained on the aggregated 960-D feature
+vector, and three additional architectures on raw log-mel-spectrograms
+(128 mels x 100 frames per segment):
+
+| # | Family | Inputs | Capacity (trainable params) | Imbalance handling |
+|---|---|---|---:|---|
+| 0 | Empirical Prior | -- | 0 | none |
+| 1 | Logistic Regression (OvR, saga, L2) | 960-D aggregated | 14,415 | class_weight='balanced' + threshold tuning |
+| 2 | Decision Tree (CART, max\_depth $\in \{3, 5, 10, 20\}$) | 960-D | --- | none (kept for overfit demonstration) |
+| 3 | Random Forest (200 trees, depth=None, leaf=2) | 960-D | --- | threshold tuning |
+| 4 | XGBoost (300 trees, depth=6, hist) | 960-D | --- | threshold tuning |
+| 5 | MLP v2 (960 - 512 - 256 - 128 - 15, BN, dropout 0.3) | 960-D | ~691K | pos\_weighted BCE + threshold tuning |
+| 6 | CNN (1->32->64->128->256 conv blocks + GAP) | 128 x 100 log-mel | 392K | pos\_weighted BCE + threshold tuning |
+| 7 | CRNN (2 conv blocks + 2-layer BiLSTM) | 128 x 100 log-mel | ~1.65M | pos\_weighted BCE + threshold tuning |
+| 8 | AST (pretrained, linear-probed) | 1 s @ 16 kHz raw | 11K trainable (768-D embedding -> 15-class linear); frozen 86M backbone | pos\_weighted BCE + threshold tuning |
+
+Decision Tree (row 2) is included as a *deliberately over-fitted* baseline
+demonstrating the bias-variance trade-off: at `max_depth=None` the tree
+reaches 100% training accuracy and ~0.42 val macro-F1; at `max_depth=10`
+the gap closes. RF (row 3) is the variance-reduction story over DT.
+XGBoost (row 4) is the boosting story.
+
+For neural models (rows 5-8), each was trained with three loss configs in
+sequence: (C1) vanilla BCE, (C2) `pos_weight`-corrected BCE, (C3) focal
+loss with $\gamma=2$. The validation-mean-AP winner was then submitted to
+per-class threshold tuning on val, giving a fourth "C4" pseudo-config. The
+best of {C1, C2, C3, C4} on val macro-F1 was the configuration evaluated on
+test.
+
+The AST is **linear-probed**, not fully fine-tuned: the pretrained 86M-param
+AudioSet backbone is frozen, and we train only a 768-to-15 linear head on
+mean-pooled encoder embeddings. Full fine-tune on our hardware (Apple M
+MPS) would have cost ~14 h per epoch and is unjustified given that AudioSet
+includes nearly all of our target classes -- AST's linear separability of
+our classes is the right question.
+
+#### (e) Strategy B retrospective (audio augmentation as imbalance lever)
+
+We trained the four aggregated-feature models (LogReg, RF, XGB, MLP) on a
+parallel Strategy B feature set, in which 5,205 augmented audio files
+contributed 24,224 class-positive segments to seven rare classes; the
+maximum-to-minimum segment-count ratio decreased from 24.5x to 7.3x.
+Augmentations were event-level (not segment-level), tuned per class
+(no time-stretch for transients), and capped at 3x synthetic-to-real.
+Test macro-F1 deltas (B - A) across the four families lay in
+**[-0.006, +0.004]**, well within seed-variance noise; the two classes
+pushed hardest by the budget (`bell_ringing` 3.4x, `light_switch` 3.36x)
+*regressed* on XGBoost by -0.052 and -0.013 respectively.
+
+The mechanism is unambiguous: mean / std / min / max over a 1-s window
+is a low-pass filter on time-domain perturbations. A pitch-shifted bell's
+MFCC mean is nearly indistinguishable from the original's. Augmented
+feature vectors therefore lie close to their originals on the aggregated
+manifold and add little new information -- they behave like duplicated
+samples with mild jitter, which `class_weight='balanced'` already
+achieves at lower compute cost. This is a *mechanistic*, not stochastic,
+null result; we discontinued Strategy B and report this finding rather
+than chase a +0.02 with another tuned variant. Full retrospective in
+`docs/strategy_B_retrospective.txt`.
+
+#### (f) Results
+
+[Placeholder until CNN / CRNN / AST finish.]
+
+The current Strategy-A test-macro-F1 leaderboard (only the trained models;
+the empirical prior is the floor at 0.053):
+
+| Model | Test macro-F1 | $\Delta$ over LogReg |
+|---|---:|---:|
+| Logistic Regression | 0.4723 | -- |
+| Random Forest | 0.5040 | +0.032 |
+| MLP v2 | 0.5495 | +0.077 |
+| XGBoost | 0.5605 | +0.088 |
+| **CNN (log-mel)** | **0.6035** | **+0.131** |
+| CRNN | TBD | TBD |
+| AST (linear probe) | TBD | TBD |
+
+The story arc is confirmed: aggregated-feature models plateau at ~0.56
+(XGBoost), and the CNN on raw log-mel-spectrograms clears that ceiling by
++0.043 macro-F1 -- decisively beating every aggregated-feature model and
+validating the move to representation learning. Its winning configuration
+was pos-weighted BCE (`sqrt_inverse_freq` clip [0.5, 30]) plus per-class
+threshold tuning on validation. The case study (Section 4) examines
+failure modes of the final headline model on two representative test
+recordings.
+
+#### (g) Threshold-tuning lift (table for the report)
+
+| Model | val macro-F1 @ 0.5 | val macro-F1 (tuned) | $\Delta$ |
+|---|---:|---:|---:|
+| Logistic Regression | 0.327 | 0.510 | +0.183 |
+| Random Forest | 0.292 | 0.497 | +0.205 |
+| XGBoost | 0.471 | 0.552 | +0.081 |
+| MLP v2 | ~0.55 | ~0.56 | +0.01 |
+
+Threshold tuning consistently provides the largest single decision-rule
+lift, especially for tree-based models whose default probabilities are not
+calibrated to the rare-class priors. We report tuned-threshold metrics
+throughout.

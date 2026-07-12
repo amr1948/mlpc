@@ -1,0 +1,383 @@
+\documentclass{article}
+
+% ready for submission
+\usepackage[final]{neurips_2023}
+
+\usepackage[utf8]{inputenc} % allow utf-8 input
+\usepackage[T1]{fontenc}    % use 8-bit T1 fonts
+\usepackage{hyperref}       % hyperlinks
+\usepackage{url}            % simple URL typesetting
+\usepackage{booktabs}       % professional-quality tables
+\usepackage{amsfonts}       % blackboard math symbols
+\usepackage{nicefrac}       % compact symbols for 1/2, etc.
+\usepackage{microtype}      % microtypography
+\usepackage{amsmath}        % for \text in math mode
+\usepackage{xcolor}         % colors
+\usepackage{graphicx}       % For adding figures/spectrograms
+\usepackage{float}          % [H] placement: keep floats exactly in place
+
+\title{Task 5: Challenge}
+
+\author{%
+   Validated Encoders \AND
+  Amr ABDULLAH
+  \And
+  Ibrahim MUHAMMAD
+}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+We build a sound event detection (SED) system for the MLPC~2026 challenge.
+Starting from the tutor-provided decision-tree baseline (non-hidden test
+macro-F1 \textbf{0.316}), we replace the per-class trees with
+\texttt{HistGradientBoostingClassifier} on the same aggregated
+1\,s-segment features, perform a grid analysis over
+\texttt{max\_iter}$\times$\texttt{max\_leaf\_nodes}, tune per-class
+decision thresholds on a held-out local-validation split, and apply a
+median-filter post-processing step with a swept window size. The final
+system reaches \textbf{0.545} non-hidden-test macro-F1 (\textbf{+0.229}
+over the baseline), driven mostly by the classifier swap and threshold
+tuning; post-processing is neutral. Sections 1--4 of the task are
+addressed; bonus tasks are out of scope here.
+\end{abstract}
+
+% =============================================================================
+\section{Baseline Reproduction}
+\label{sec:baseline}
+
+\subsection{Pipeline and Reproduction}
+The provided baseline trains
+one binary \texttt{DecisionTreeClassifier} per class wrapped in
+\texttt{MultiOutputClassifier}, on the 960-dimensional aggregated feature
+matrix concatenated from the {mean, std, min, max} keys in the
+\texttt{.npz} files. Training uses a random 50{,}000-segment subsample of
+the full $\sim$1.7\,M training segments, with the remaining feature
+weights identical across classes. At inference the classifier predicts on
+\emph{all} overlapping 1\,s segments produced at a 0.5\,s hop, then keeps
+only those starting at whole second timestamps so that the metric's
+1\,s-resolution evaluation is honored. Consecutive active segments are
+merged into onset/offset intervals.
+
+We reproduced the baseline on the seed-42 local-validation split (499
+files) and the disjoint non-hidden test split (500 files), evaluating
+with the provided \texttt{evaluate.py} (segment based macro-F1):
+\begin{itemize}\setlength\itemsep{0pt}
+  \item Local validation macro-F1 = \textbf{0.307}
+  \item Non-hidden test macro-F1 = \textbf{0.316}
+\end{itemize}
+Our reproduction (\texttt{0.3073} / \texttt{0.3164}) matches the
+provided baseline values to within rounding.
+
+\subsection{Per-Class Performance Differences}
+% TODO: insert per-class bar/figure from baseline; discuss
+The class wise F1 spread is wide. Sustained broadband classes
+(\texttt{running\_water}, \texttt{vacuum\_cleaner}, \texttt{microwave})
+already score above $0.5$ at the decision tree level: they emit
+energy continuously across the 1\,s window, so the aggregated features
+(\texttt{melspect\_*, mfcc\_*}) capture them robustly. Brief transients
+(\texttt{light\_switch}, \texttt{window\_open\_close}, \texttt{wardrobe\_
+drawer\_open\_close}) score lowest: a sub-100\,ms impulse contributes a
+small fraction of the 1\,s aggregation, so the per-segment posterior
+remains close to the negative class. Frequency also plays a role: with a
+$\sim$47$\times$ positive-rate ratio between \texttt{running\_water} and
+\texttt{light\_switch}, the rare classes receive far fewer training
+splits that distinguish them. Acoustically similar classes
+(\texttt{door\_open\_close} vs.\ \texttt{wardrobe\_drawer\_open\_close})
+confuse for the same reason a 1\,s mean-pooled spectrum cannot resolve
+their short impulses.
+
+\subsection{Strengths and Limitations}
+The baseline's strengths are simplicity and a fully unbiased per-class
+operating point selection: each binary tree can choose its own
+thresholds in feature space. Its limitations, however, are exactly what
+caps performance at $\sim$0.307: (i) \textbf{independent binary trees}
+cannot model cross-class dependencies (e.g.\ a microwave hum and water
+running together), (ii) \textbf{1\,s temporal resolution} is too coarse
+for the four transient classes whose typical event length is much
+shorter than the window, (iii) \textbf{single CART trees} cannot
+combine features as effectively as a boosted ensemble on this many
+inputs, and (iv) \textbf{\texttt{predict()} at $\tau{=}0.5$} ignores
+the well-known fact that rare-class posteriors lie far below 0.5 and
+must be calibrated.
+
+% =============================================================================
+\section{Simple Classifier Swap and Tuning}
+\label{sec:simple}
+
+\subsection{Best Previous-Phase Classical Model and Choice for the Challenge}
+The non-deep-learning leaderboard from our previous phase was
+\textbf{XGBoost} (test macro-F1 = 0.5605; 300 trees, \texttt{max\_depth=6},
+\texttt{learning\_rate=0.1}, \texttt{tree\_method=`hist`}). This time we use the sklearn native
+\textbf{\texttt{HistGradientBoostingClassifier}}, which is algorithmically
+equivalent (histogram-based gradient boosting) and produces the same
+class of tabular accuracy. As in the baseline, one binary HistGB is
+trained per class via \texttt{MultiOutputClassifier}.
+
+\subsection{Hyperparameter Analysis}
+We swept the two hyperparameters that most directly control HistGB's
+bias--variance trade-off:
+\texttt{max\_iter}\,$\in\{200,500\}$ (boosting rounds, complexity of the
+additive model) and
+\texttt{max\_leaf\_nodes}\,$\in\{31,63\}$ (per-round capacity). Each of
+the four configurations is trained on the 50k subsample and evaluated on
+the local-validation set with the official scorer (Fig.~\ref{fig:hp}).
+
+
+
+The four configs score $0.467$ ($200/31$), $0.458$ ($200/63$), $0.467$ ($500/31$),
+$0.458$ ($500/63$). The best configuration was
+\texttt{max\_iter=500}, \texttt{max\_leaf\_nodes=31}, giving local-val
+macro-F1 = \textbf{0.467} --- already \textbf{+0.16} over the
+decision-tree baseline (0.307) before any threshold tuning.
+
+\subsection{Per-Class Threshold Tuning}
+HistGB outputs calibrated probabilities; the default $\tau{=}0.5$
+systematically under-predicts rare classes whose posteriors sit far
+below 0.5 and is the single largest decision-rule lever
+(+0.20\,F1 in our previous phase). We collect probability matrices on
+the local-validation segments, sweep $\tau\in[0.05, 0.95]$ in steps of
+$0.02$ per class and pick the F1-optimal $\tau$ per class. The tuned
+thresholds are all low ($0.05$--$0.27$), confirming the calibration
+mismatch. Applying them lifts local-validation macro-F1 from
+\textbf{0.467} to \textbf{0.554} (\textbf{+0.087}) --- the second-largest
+lever after the classifier swap.
+
+\subsection{Comparison and Selected Classes}
+Table~\ref{tab:build} summarises how each step builds up the final score.
+
+
+On the non-hidden test set (single-shot, untouched during development):
+baseline DT macro-F1 = \textbf{0.316}; HistGB with the best grid config
+and tuned thresholds = \textbf{0.545} (delta \textbf{+0.229}).
+Figure~\ref{fig:perclass} shows every one of the 15 classes improves.
+The largest absolute gains come from the rare/transient classes
+(\texttt{light\_switch}, \texttt{window\_open\_close},
+\texttt{wardrobe\_drawer\_open\_close}), where the low tuned thresholds
+unlock previously-suppressed positives, and from the mid-frequency
+classes (\texttt{phone\_ringing}, \texttt{keychain}) that benefit from
+boosting's stronger decision boundaries. Sustained broadband classes
+(\texttt{running\_water}, \texttt{vacuum\_cleaner}) were already strong
+and stay near the top.
+
+\subsection{Qualitative Error Analysis}
+Files were ranked by a per-file F1 over \emph{active or predicted}
+classes only (so the metric reflects ``how well did the model do on this
+file'' rather than averaging over 11 inactive classes). We show a clear
+\emph{success} (\texttt{001565.wav}) and a clear \emph{failure}
+(\texttt{000554.wav}); a third mixed example is in
+Appendix~\ref{app:mixed}. Figures overlay ground-truth event spans
+(transparent boxes) with HistGB framewise probabilities (curves) and the
+per-class thresholds (dashed horizontal lines).
+
+\textbf{Success (\texttt{001565.wav}, active-class F1 = 0.97).} Three
+sustained classes (\texttt{cutlery\_dishes}, \texttt{microwave},
+\texttt{running\_water}) are detected cleanly; the probability curves
+track the GT boxes throughout and \texttt{coffee\_machine} stays
+correctly below its threshold (Fig.~\ref{fig:err-clean}).
+
+\textbf{Failure (\texttt{000554.wav}, active-class F1 = 0.00).} The true
+event is missed entirely while the model raises one or two
+acoustically-related transient classes above threshold ---
+a clean wrong-prediction failure (Fig.~\ref{fig:err-fail}). This is the
+generic transient-class failure: a brief impulse smeared across a 1\,s
+window is acoustically ambiguous between
+\texttt{door\_open\_close}, \texttt{footsteps}, and
+\texttt{wardrobe\_drawer\_open\_close}.
+
+
+
+% =============================================================================
+\section{Post-Processing: Median Filtering}
+\label{sec:postproc}
+
+Independent per-segment predictions are temporally noisy: a single
+spurious activation surrounded by zeros is interpreted as a 1\,s event
+under \texttt{predictions\_to\_intervals}. We apply a length-$w$
+median filter along the time axis (per class), so a binarized
+prediction at time $t$ is replaced by the median of the $w/2$ neighbours
+on each side. With an odd $w$, a 1 survives only if at least
+$\lceil w/2 \rceil$ neighbours are also 1 --- isolated false positives
+are removed while events of length $\geq w/2$ are preserved. We swept
+$w \in \{1, 3, 5, 7, 9\}$ on local validation (Fig.~\ref{fig:winsweep}):
+
+
+The best window was $w{=}\textbf{3}$ with local-val macro-F1
+$\textbf{0.5556}$ (vs.\ $0.5538$ without filtering, delta \textbf{+0.002});
+larger windows degrade monotonically ($w{=}5$: $0.528$; $w{=}9$:
+$0.471$) as they erase true events shorter than $\lceil w/2 \rceil$
+seconds. On the locked, single-shot non-hidden test set the
+$w{=}3$ system delivers $\textbf{0.5437}$ vs.\ $\textbf{0.5450}$ without
+filtering (\textbf{$-$0.001}) --- a \emph{neutral} result within
+seed-variance noise. The interval count drops sharply ($5{,}545 \to
+2{,}453$ on validation), so the filter is removing many isolated
+single-segment detections, but on this metric the removed detections
+were roughly balanced between true and false positives
+(Fig.~\ref{fig:wincls}).
+
+
+Although $w{=}3$ was the validation-optimal choice, we submit the
+\emph{unfiltered} ($w{=}1$) predictions for the hidden test, for two
+reasons: (i) median filtering is neutral to negative on the held-out
+test, so it carries no expected benefit, and (ii) on 5 of the 1{,}007
+hidden files every detection was a single isolated segment that $w{=}3$
+erased entirely, leaving those files with no predictions; the $w{=}1$
+system covers all 1{,}007 files. The honest conclusion is that median
+filtering does not help this system: the threshold-tuned HistGB already
+produces temporally coherent predictions, and the remaining errors are
+class-confusions rather than the isolated single-segment noise a median
+filter removes.
+
+% =============================================================================
+\section{Reflection and Real-World Considerations}
+\label{sec:reflection}
+
+\subsection{Technical Limitations and Future Work}
+The dominant remaining failure mode is the \textbf{1\,s temporal
+resolution}: events shorter than half the median window become
+filterable noise, and three of the four transient classes
+(\texttt{light\_switch}, \texttt{window\_open\_close},
+\texttt{wardrobe\_drawer\_open\_close}) remain below F1$\,{=}\,0.30$
+even after threshold tuning. Promising directions: (i) train on the
+denser 0.5\,s-hopped segments and use them at inference too (the
+discarded half-second segments would double the training data), (ii)
+move to a small temporal model  that does not lose intra-segment temporal structure, and (iii)
+exploit cross-class structure (e.g.\ a chained classifier or a small
+multi-class MLP on per-class probability vectors) to model co-occurrence
+patterns that independent binary trees cannot. The current
+\emph{representation} (mean/std/min/max of 14 base groups) is also a
+known bottleneck --- aggregation low-pass-filters time-domain
+perturbations.
+
+\subsection{Real-World Deployment}
+Inference cost is dominated by the per-segment feature extraction
+($\sim$10--40\,ms/segment on a CPU), comfortably under the 1\,s segment
+duration --- the system can run in real time on a smart-home device's
+microcontroller-class CPU. Robustness, however, is the practical
+blocker: collector-grouped evaluation has shown a $\sim$0 val--test gap
+in our development data, but a household with unusual acoustics (loud
+HVAC, an unusual microphone) will likely drop precision on the
+boundary classes the model already struggles with. Threshold transfer
+is the largest operational risk: per-class thresholds tuned on the
+challenge data will be miscalibrated for a noisier home, and a
+deployment system should expose a lightweight on-device recalibration
+routine (e.g.\ user-confirmed positives over the first day). Compute
+and latency are not the binding constraints --- reliability under
+acoustic shift is.
+
+% ==============================FIGs===============================================
+
+\section{Figures}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.7\linewidth]{hp_grid_heatmap.png}
+\caption{HistGB hyperparameter sweep, local validation macro-F1 (no
+threshold tuning). \texttt{max\_leaf\_nodes=31} clearly beats $63$
+(the larger leaf budget over-fits the 50k subsample), while
+\texttt{max\_iter} has almost no effect --- early stopping caps the
+effective number of rounds well before 500.}
+\label{fig:hp}
+\end{figure}
+
+\begin{table}[H]
+\centering
+\small
+\caption{System build-up. Macro-F1 at each stage. ``local val'' is the
+seed-42 validation split used for model selection and threshold tuning;
+``non-hidden test'' is the single-shot held-out estimate.}
+\label{tab:build}
+\begin{tabular}{lcc}
+\toprule
+\textbf{System} & \textbf{local val} & \textbf{non-hidden test} \\
+\midrule
+Baseline: per-class DecisionTree            & 0.307 & 0.316 \\
+HistGB (best grid config, $\tau{=}0.5$)     & 0.467 & --    \\
+\;\; + per-class threshold tuning           & 0.554 & 0.545 \\
+\;\; + median filter ($w{=}3$)              & 0.556 & 0.544 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{section2_perclass.png}
+\caption{Per-class F1 on the non-hidden test set: baseline
+\texttt{DecisionTree} vs.\ HistGB with the best grid config and tuned
+per-class thresholds.}
+\label{fig:perclass}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{err_clean.png}
+\caption{Success example (\texttt{001565.wav}). Three sustained classes
+detected cleanly; predictions hug the GT boxes throughout.}
+\label{fig:err-clean}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{err_failure.png}
+\caption{Failure example (\texttt{000554.wav}). The true class is missed
+while the model raises acoustically-related transient classes --- a clean
+wrong-prediction failure on a brief-transient event.}
+\label{fig:err-fail}
+\end{figure}
+
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.6\linewidth]{section3_window_sweep.png}
+\caption{Median-filter window sweep on the local validation set.}
+\label{fig:winsweep}
+\end{figure}
+
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{section3_per_class_delta.png}
+\caption{Per-class effect of the $w{=}3$ median filter on local
+validation. The few classes that gain are the longer sustained events
+(their true positives survive the $\lceil w/2 \rceil$ vote while isolated
+false detections are removed); the short-transient classes lose, because
+their true positives are themselves single-segment and are filtered out
+--- which is why the net effect is neutral.}
+\label{fig:wincls}
+\end{figure}
+% =============================================================================
+\section*{Disclosure of LLM and AI Tool Use}
+We used Anthropic Claude and Cursor as engineering assistants throughout:
+code restructuring, rebuilding, debugging, testing  and
+editing the report draft.
+All numerical results, figures, and the prediction CSV were
+verified against the raw artifacts on disk.
+
+\begin{thebibliography}{9}
+\small
+\bibitem[Murphy(2012)]{murphy} K.~P. Murphy. \textit{Machine Learning:
+  A Probabilistic Perspective}. MIT Press, 2012.
+\bibitem[Mesaros et~al.(2016)]{sed} A.~Mesaros, T.~Heittola, T.~Virtanen.
+  Metrics for Polyphonic Sound Event Detection. \textit{Applied Sciences},
+  6(6):162, 2016.
+\bibitem[Friedman(2001)]{gbm} J.~H. Friedman. Greedy Function Approximation:
+  A Gradient Boosting Machine. \textit{Annals of Statistics}, 29(5),
+  2001.
+\end{thebibliography}
+
+\appendix
+\section{Additional Error-Analysis Example}
+\label{app:mixed}
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{err_mixed.png}
+\caption{Mixed example (\texttt{004551.wav}, active-class F1 = 0.45, 6
+active classes). The model handles the sustained classes but shows
+boundary errors and timing offsets on the transients --- a typical
+intermediate case between the clean and failure extremes.}
+\label{fig:err-mixed}
+\end{figure}
+
+\end{document}

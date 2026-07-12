@@ -1,0 +1,46 @@
+# ---- OS / editor / tooling ----
+.DS_Store
+**/.DS_Store
+.ipynb_checkpoints/
+__pycache__/
+*.pyc
+.claude/
+*.bak
+*.zip
+
+# ---- Provided datasets (not ours to redistribute) + large ----
+metadata.csv
+**/metadata.csv
+**/annotations.csv
+**/audio_features/
+data/audio/
+data/audio_aug/
+data/audio_features/
+data/audio_features_aug/
+**/audio_aug/
+**/audio_features_aug/
+*.npz
+*.m4a
+*.mp3
+*.wav
+
+# ---- Provided task descriptions, exams, lecture material (copyright) ----
+docs/*.pdf
+docs/exam/
+# Course-authored starter/tutorial notebook (copyright)
+**/data_exploration_tutorial.ipynb
+**/UE_MLPC_*.pdf
+**/*_Task*.pdf
+**/*Description*.pdf
+phases/04_challenge/data/
+
+# ---- Large regenerable model weights / embeddings ----
+*.joblib
+*.pt
+*.pkl
+*.npy
+**/ast_embeddings/
+**/_shards/
+
+# Personal notes / logs (not for publication)
+docs/*.md

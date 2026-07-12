@@ -1,0 +1,99 @@
+{
+  "clean": "001565.wav",
+  "mixed": "004551.wav",
+  "failure": "000554.wav",
+  "rank_top5": [
+    {
+      "file": "002097.wav",
+      "n_sec": 18,
+      "n_active_gt": 2,
+      "n_active_pred": 2,
+      "n_active": 2,
+      "predicts_wrong": 0,
+      "macro_f1_active": 1.0
+    },
+    {
+      "file": "002682.wav",
+      "n_sec": 21,
+      "n_active_gt": 1,
+      "n_active_pred": 1,
+      "n_active": 1,
+      "predicts_wrong": 0,
+      "macro_f1_active": 1.0
+    },
+    {
+      "file": "001565.wav",
+      "n_sec": 25,
+      "n_active_gt": 3,
+      "n_active_pred": 3,
+      "n_active": 3,
+      "predicts_wrong": 0,
+      "macro_f1_active": 0.9693877551020408
+    },
+    {
+      "file": "000070.wav",
+      "n_sec": 20,
+      "n_active_gt": 2,
+      "n_active_pred": 2,
+      "n_active": 2,
+      "predicts_wrong": 0,
+      "macro_f1_active": 0.9686609686609686
+    },
+    {
+      "file": "003536.wav",
+      "n_sec": 36,
+      "n_active_gt": 2,
+      "n_active_pred": 2,
+      "n_active": 2,
+      "predicts_wrong": 0,
+      "macro_f1_active": 0.9635278514588859
+    }
+  ],
+  "rank_bottom5": [
+    {
+      "file": "004844.wav",
+      "n_sec": 29,
+      "n_active_gt": 1,
+      "n_active_pred": 3,
+      "n_active": 4,
+      "predicts_wrong": 1,
+      "macro_f1_active": 0.0
+    },
+    {
+      "file": "000194.wav",
+      "n_sec": 20,
+      "n_active_gt": 1,
+      "n_active_pred": 3,
+      "n_active": 4,
+      "predicts_wrong": 1,
+      "macro_f1_active": 0.0
+    },
+    {
+      "file": "002180.wav",
+      "n_sec": 6,
+      "n_active_gt": 3,
+      "n_active_pred": 0,
+      "n_active": 3,
+      "predicts_wrong": 0,
+      "macro_f1_active": 0.0
+    },
+    {
+      "file": "000554.wav",
+      "n_sec": 20,
+      "n_active_gt": 2,
+      "n_active_pred": 3,
+      "n_active": 5,
+      "predicts_wrong": 1,
+      "macro_f1_active": 0.0
+    },
+    {
+      "file": "000074.wav",
+      "n_sec": 9,
+      "n_active_gt": 1,
+      "n_active_pred": 1,
+      "n_active": 2,
+      "predicts_wrong": 1,
+      "macro_f1_active": 0.0
+    }
+  ]
+}

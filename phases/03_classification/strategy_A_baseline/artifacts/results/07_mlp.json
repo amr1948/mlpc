@@ -1,0 +1,306 @@
+{
+  "meta": {
+    "strategy": "A",
+    "model": "mlp",
+    "notebook_id": "07",
+    "notebook_version": "v2",
+    "timestamp": "2026-05-14T21:19:27",
+    "random_seed": 42,
+    "device": "cpu",
+    "selection_metric": "val_mAP",
+    "training_seconds": {
+      "C1_vanilla_bce": 50.51,
+      "C2_pos_weighted_bce": 41.86,
+      "C3_focal_g2": 55.33
+    },
+    "best_epoch_per_config": {
+      "C1": 12,
+      "C2": 9,
+      "C3": 14
+    },
+    "skipped_batches_per_config": {
+      "C1": 0,
+      "C2": 0,
+      "C3": 0
+    },
+    "n_train": 100166,
+    "n_val": 34245,
+    "n_test": 33828
+  },
+  "winning_config": {
+    "config_id": 4,
+    "description": "C4 - per-class threshold tuning on top of C1 (mAP winner)",
+    "thresholds": [
+      0.34,
+      0.64,
+      0.39,
+      0.23,
+      0.29,
+      0.55,
+      0.27,
+      0.06,
+      0.22,
+      0.41,
+      0.46,
+      0.38,
+      0.2,
+      0.21,
+      0.23
+    ],
+    "hyperparameters": {
+      "hidden_sizes": [
+        512,
+        256,
+        128
+      ],
+      "dropout": 0.3,
+      "optimizer": "AdamW",
+      "lr": 0.001,
+      "weight_decay": 0.0001,
+      "lr_schedule": "CosineAnnealing",
+      "batch_size": 512,
+      "max_epochs": 60,
+      "min_epochs": 15,
+      "patience": 7,
+      "grad_clip_norm": 1.0,
+      "selection_metric": "val_mAP"
+    }
+  },
+  "val_scores_macro_f1": {
+    "config_1": 0.5082791763742126,
+    "config_2": 0.539842758542782,
+    "config_3": 0.5132878721990145,
+    "config_4": 0.56597922823881
+  },
+  "val_scores_mAP": {
+    "config_1": 0.5720869749517692,
+    "config_2": 0.5681523672524229,
+    "config_3": 0.5720079487938804,
+    "config_4": null
+  },
+  "val_report": {
+    "bell_ringing": {
+      "precision": 0.5968,
+      "recall": 0.3917,
+      "f1": 0.473,
+      "support": 480
+    },
+    "coffee_machine": {
+      "precision": 0.7657,
+      "recall": 0.4995,
+      "f1": 0.6046,
+      "support": 1073
+    },
+    "cutlery_dishes": {
+      "precision": 0.622,
+      "recall": 0.6023,
+      "f1": 0.612,
+      "support": 1828
+    },
+    "door_open_close": {
+      "precision": 0.3559,
+      "recall": 0.4384,
+      "f1": 0.3928,
+      "support": 1177
+    },
+    "footsteps": {
+      "precision": 0.4981,
+      "recall": 0.6062,
+      "f1": 0.5469,
+      "support": 4033
+    },
+    "keyboard_typing": {
+      "precision": 0.8714,
+      "recall": 0.6891,
+      "f1": 0.7696,
+      "support": 3107
+    },
+    "keychain": {
+      "precision": 0.6378,
+      "recall": 0.6124,
+      "f1": 0.6248,
+      "support": 1553
+    },
+    "light_switch": {
+      "precision": 0.1915,
+      "recall": 0.2571,
+      "f1": 0.2195,
+      "support": 140
+    },
+    "microwave": {
+      "precision": 0.6685,
+      "recall": 0.684,
+      "f1": 0.6762,
+      "support": 2253
+    },
+    "phone_ringing": {
+      "precision": 0.7324,
+      "recall": 0.6527,
+      "f1": 0.6903,
+      "support": 2122
+    },
+    "running_water": {
+      "precision": 0.7902,
+      "recall": 0.8068,
+      "f1": 0.7984,
+      "support": 4151
+    },
+    "toilet_flushing": {
+      "precision": 0.7265,
+      "recall": 0.6484,
+      "f1": 0.6852,
+      "support": 967
+    },
+    "vacuum_cleaner": {
+      "precision": 0.707,
+      "recall": 0.8116,
+      "f1": 0.7557,
+      "support": 2441
+    },
+    "wardrobe_drawer_open_close": {
+      "precision": 0.3552,
+      "recall": 0.2822,
+      "f1": 0.3145,
+      "support": 613
+    },
+    "window_open_close": {
+      "precision": 0.3293,
+      "recall": 0.323,
+      "f1": 0.3261,
+      "support": 421
+    },
+    "macro avg": {
+      "precision": 0.5899,
+      "recall": 0.5537,
+      "f1": 0.566,
+      "support": 26359
+    },
+    "micro avg": {
+      "precision": 0.6509,
+      "recall": 0.649,
+      "f1": 0.6499,
+      "support": 26359
+    },
+    "weighted avg": {
+      "precision": 0.6648,
+      "recall": 0.649,
+      "f1": 0.6523,
+      "support": 26359
+    }
+  },
+  "test_report": {
+    "bell_ringing": {
+      "precision": 0.3435,
+      "recall": 0.4182,
+      "f1": 0.3772,
+      "support": 483
+    },
+    "coffee_machine": {
+      "precision": 0.779,
+      "recall": 0.4733,
+      "f1": 0.5888,
+      "support": 1236
+    },
+    "cutlery_dishes": {
+      "precision": 0.6653,
+      "recall": 0.6347,
+      "f1": 0.6496,
+      "support": 2045
+    },
+    "door_open_close": {
+      "precision": 0.3738,
+      "recall": 0.5032,
+      "f1": 0.429,
+      "support": 1077
+    },
+    "footsteps": {
+      "precision": 0.5488,
+      "recall": 0.5519,
+      "f1": 0.5504,
+      "support": 4256
+    },
+    "keyboard_typing": {
+      "precision": 0.8229,
+      "recall": 0.6499,
+      "f1": 0.7262,
+      "support": 3333
+    },
+    "keychain": {
+      "precision": 0.625,
+      "recall": 0.6038,
+      "f1": 0.6142,
+      "support": 1474
+    },
+    "light_switch": {
+      "precision": 0.1029,
+      "recall": 0.2841,
+      "f1": 0.1511,
+      "support": 88
+    },
+    "microwave": {
+      "precision": 0.6873,
+      "recall": 0.6964,
+      "f1": 0.6918,
+      "support": 2579
+    },
+    "phone_ringing": {
+      "precision": 0.7393,
+      "recall": 0.6845,
+      "f1": 0.7109,
+      "support": 2076
+    },
+    "running_water": {
+      "precision": 0.7597,
+      "recall": 0.8375,
+      "f1": 0.7967,
+      "support": 4190
+    },
+    "toilet_flushing": {
+      "precision": 0.7351,
+      "recall": 0.5827,
+      "f1": 0.6501,
+      "support": 1076
+    },
+    "vacuum_cleaner": {
+      "precision": 0.6278,
+      "recall": 0.8484,
+      "f1": 0.7216,
+      "support": 1992
+    },
+    "wardrobe_drawer_open_close": {
+      "precision": 0.3193,
+      "recall": 0.3058,
+      "f1": 0.3124,
+      "support": 569
+    },
+    "window_open_close": {
+      "precision": 0.2924,
+      "recall": 0.2545,
+      "f1": 0.2721,
+      "support": 393
+    },
+    "macro avg": {
+      "precision": 0.5615,
+      "recall": 0.5553,
+      "f1": 0.5495,
+      "support": 26867
+    },
+    "micro avg": {
+      "precision": 0.6458,
+      "recall": 0.6467,
+      "f1": 0.6462,
+      "support": 26867
+    },
+    "weighted avg": {
+      "precision": 0.6599,
+      "recall": 0.6467,
+      "f1": 0.6477,
+      "support": 26867
+    }
+  },
+  "headline_test": {
+    "macro_f1": 0.5495,
+    "micro_f1": 0.6462,
+    "weighted_f1": 0.6477
+  }
+}

@@ -1,0 +1,72 @@
+
+### 1. Dataset Preparation
+
+#### (a) Label Aggregation
+
+**(i) Aggregation strategy.** The annotation tensor has shape `[T, C, A] = [num_segments, 15, num_annotators]`, where each entry encodes the proportional temporal overlap (∈ [0, 1]) between an annotated event and the 1-second segment. We convert it to binary labels of shape `[T, C]` in two steps:
+
+1. **Per-annotator binarization** with threshold τ = 0.5: annotator *a* marks class *c* present in segment *t* iff the overlap exceeds 50 % of the segment's duration.
+2. **Strict majority vote across annotators**: the final label is positive iff *more than* A/2 annotators agree.
+
+Applied to all 3,656 recordings (168,239 segments), this produced 90,299 single-class segments (53.7 %), 19,597 multi-class segments (11.6 %), and 58,343 silent segments (34.7 %).
+
+**(ii) Justification, advantages, limitations.**
+
+*Advantages.* Each annotator contributes one discrete vote, weighted equally — robust to a single outlier annotator. Strict majority (`>`, not `≥`) resolves ties to the negative class, biasing toward precision over recall, which is appropriate when label noise is more harmful than missing positives.
+
+*Limitations.*
+1. **The number of annotators per file is not constant**: A=1 in 17.1 % of files, A=2 in 47.9 %, A=3 in 33.8 %, A≥4 in 1.2 %. The aggregation rule therefore behaves asymmetrically — for A=1 there is no aggregation at all (a single annotator dictates the label); for A=2 strict majority degenerates into **unanimous consent** (both annotators must mark the class); only for A≥3 does the rule act as a true majority vote. Consequently, ~17 % of segments carry no inter-annotator filtering and are likely noisier than the rest.
+2. **The threshold τ = 0.5 disfavors short events.** Classes whose typical event duration is much shorter than 1 second (e.g., `light_switch`, typically <100 ms) rarely produce overlap > 0.5, contributing to their extreme rarity in the resulting labels (`light_switch`: 501 / 168,239 = 0.30 %).
+3. **Soft information is discarded.** A segment with overlaps (0.9, 0.45) is treated identically to one with (0.51, 0.51), even though the former carries stronger evidence.
+
+Alternative strategies considered: *mean-overlap thresholding* (averages annotators before binarizing — cheaper but more sensitive to one annotator drawing wide regions), *union over annotators* (maximizes recall but inherits all individual annotator noise), and *soft labels* (mean overlap as float — preserves uncertainty but is incompatible with most off-the-shelf classifiers and metrics).
+
+#### (b) Data Split
+
+**(i) Information leakage.** Two leakage paths exist:
+
+1. **Segment-level leakage.** Adjacent 1-second segments within a recording are highly correlated — they share device, environment, and (with 0.5-second hop) some actual acoustic content. A naive shuffle-split would place neighboring segments of the same recording in different splits, allowing the model to memorize recording-specific acoustics, optimistically biasing val/test scores.
+
+2. **Collector-level leakage.** Each collector contributed up to 10 recordings, all sharing recording device, microphone placement, ambient noise floor, and home environment. A model trained on some of a collector's files and tested on the rest can exploit collector-specific cues rather than generalize to unseen environments. This is the more dangerous form because it can hide poor real-world generalization.
+
+**Strategy.** We split at the **collector level** using `sklearn.GroupShuffleSplit` with `groups = collector_id`. The split proceeds in two stages: 20 % of collectors form the test set, then 25 % of the remaining collectors form the validation set, yielding a 60/20/20 ratio overall. Zero collector overlap between any pair of splits was verified post-hoc. **No segment from any recording, and no recording from any collector, appears in more than one split.** Empirical result: 244 / 82 / 82 collectors → 100,166 / 34,245 / 33,828 segments (59.5 % / 20.4 % / 20.1 %).
+
+**(ii) Class distribution preservation.** Class distributions should be similar across splits because (a) validation must reliably reflect test for hyperparameter selection, and (b) extreme rarity of a class in one split makes its metrics unreliable on that split.
+
+This is non-trivial: we have a *multi-label* problem combined with a *group constraint*, for which scikit-learn provides no native stratified primitive. We sweep over 20 random seeds of `GroupShuffleSplit` and select the seed that minimizes the symmetric Kullback–Leibler divergence between the per-class positive-rate vectors of train vs. val and train vs. test. The chosen split (seed 9) achieves a total KL imbalance score of **0.0054** — per-class priors are nearly identical across splits. Per-class positive rates (%) per split:
+
+| Class | Train | Val | Test |
+|---|---:|---:|---:|
+| running_water | 12.82 | 12.12 | 12.39 |
+| footsteps | 11.41 | 11.78 | 12.58 |
+| keyboard_typing | 9.11 | 9.07 | 9.85 |
+| microwave | 6.81 | 6.58 | 7.62 |
+| vacuum_cleaner | 6.39 | 7.13 | 5.89 |
+| phone_ringing | 6.26 | 6.20 | 6.14 |
+| cutlery_dishes | 6.03 | 5.34 | 6.05 |
+| keychain | 4.56 | 4.53 | 4.36 |
+| coffee_machine | 3.78 | 3.13 | 3.65 |
+| door_open_close | 3.57 | 3.44 | 3.18 |
+| toilet_flushing | 3.16 | 2.82 | 3.18 |
+| wardrobe_drawer_open_close | 1.98 | 1.79 | 1.68 |
+| window_open_close | 1.29 | 1.23 | 1.16 |
+| bell_ringing | 1.09 | 1.40 | 1.43 |
+| light_switch | 0.27 | 0.41 | 0.26 |
+
+Deviations are within 1.5 percentage points for every class. The relative imbalance is largest for `light_switch` (only 88 absolute positives in test) — a limitation we will revisit when reporting per-class metrics.
+
+#### (c) Preprocessing
+
+We applied two preprocessing steps, **both fitted exclusively on the training partition** to avoid leaking val/test statistics.
+
+1. **Log-compression of heavy-tailed features.** The exploration phase identified `energy_*` and `power_*` as non-negative features with extremely heavy right tails (raw `power_max` reached 6.79 × 10⁴ against a mean of ~112). Without compression, post-standardization values reached **80 standard deviations** from the mean, a regime that destabilizes gradient-based classifiers and dominates distance computations in k-NN/SVM. We applied `x ↦ log(1 + x)` to the 8 columns belonging to the `energy` and `power` groups before standardization. After this transform, the maximum value of these columns dropped from 6.79 × 10⁴ to 11.13. Because `log1p` is an elementwise monotonic transform, it cannot leak information across splits.
+
+2. **Z-score standardization** (zero-mean, unit-variance per feature) using `sklearn.StandardScaler` fitted on the training partition only. After log-compression and standardization, the per-column maximum |z| dropped from **80.07** to **21.77** — well within the operational range expected by linear, kernel, and neural classifiers. The median per-column |z| max is 6.90 and the 95th percentile is 14.26, indicating that the residual outliers are localized to a small minority of features (driven by transient impulses such as door slams and bell strikes) and do not affect the bulk of the feature space. No features were near-constant on the training partition (all 960 carry non-trivial variance).
+
+**Standardization is conditional on the classifier.** Tree-based classifiers (Random Forest, Gradient Boosting) are scale-invariant — they split on thresholds rather than distances or dot products — and do not benefit from scaling. Linear models (Logistic Regression, SVM), distance-based models (k-NN), and gradient-trained models (MLPs) require scaled inputs to converge reliably and weight features evenly. We therefore retain both the unscaled (post-`log1p`) and the scaled feature matrices, selecting the appropriate version per classifier in §3.
+
+We deliberately did **not** apply feature selection at this stage. The exploration phase showed that the `melspect_*` block (512 of 960 dimensions, 53 % of features) is correlated with the `mfcc_*` block, suggesting redundancy. Whether to drop it is a model-dependent decision best made after observing each classifier's behavior, since some models exploit correlated features productively while others do not.
+
+---
+
+§1 is now closed. Save the file via Cell 8 and we move on to **§2 Evaluation** (5 points: choosing a metric and establishing a baseline) when you're ready — just say the word.

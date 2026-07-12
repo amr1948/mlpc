@@ -1,0 +1,8 @@
+cls,test,train,val,total,kept,dropped,kept_pct
+window_open_close,277,876,295,1448,876,572,60.5
+light_switch,222,738,242,1202,738,464,61.4
+wardrobe_drawer_open_close,215,676,195,1086,676,410,62.2
+bell_ringing,208,542,183,933,542,391,58.1
+door_open_close,37,140,44,221,140,81,63.3
+toilet_flushing,47,129,38,214,129,85,60.3
+coffee_machine,21,61,19,101,61,40,60.4

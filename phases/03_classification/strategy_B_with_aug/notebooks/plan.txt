@@ -1,0 +1,16 @@
+mlpc/
+├── config.json                       ┐
+├── features.py                       │  SHARED — both lanes
+├── metadata.csv                      │
+├── docs/                             ┘
+│
+├── data/
+│   ├── audio/                  ─── team + solo (originals)
+│   ├── audio_features/         ─── team + solo (originals)
+│   ├── audio_aug/              ─── SOLO ONLY (Augmentation)
+│   └── audio_features_aug/     ─── SOLO ONLY
+│
+├── strategy_A_baseline/        ─── TEAM
+├── augmentation/               ─── SOLO ONLY (pipeline + artifacts)
+├── strategy_B_with_aug/        ─── SOLO ONLY (your experiment)
+└── report/                     ─── shared (writeup)

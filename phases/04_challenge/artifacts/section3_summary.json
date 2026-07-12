@@ -1,0 +1,38 @@
+{
+  "best_window": 3,
+  "window_sweep": [
+    {
+      "window": 1,
+      "val_macro_f1": 0.5537959802801534,
+      "n_intervals": 5545,
+      "seconds": 67.0
+    },
+    {
+      "window": 3,
+      "val_macro_f1": 0.5556456598879608,
+      "n_intervals": 2453,
+      "seconds": 62.8
+    },
+    {
+      "window": 5,
+      "val_macro_f1": 0.5281805852178968,
+      "n_intervals": 1733,
+      "seconds": 65.7
+    },
+    {
+      "window": 7,
+      "val_macro_f1": 0.4982724763062533,
+      "n_intervals": 1403,
+      "seconds": 81.0
+    },
+    {
+      "window": 9,
+      "val_macro_f1": 0.47089245982034955,
+      "n_intervals": 1187,
+      "seconds": 68.3
+    }
+  ],
+  "nht_macro_f1_no_postproc": 0.545049920524897,
+  "nht_macro_f1_with_postproc": 0.5436614085931233,
+  "delta_nht": -0.001388511931773695
+}

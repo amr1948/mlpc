@@ -1,0 +1,16 @@
+annotation,baseline_events,ours_events,delta
+bell_ringing,200,58,-142
+coffee_machine,393,61,-332
+cutlery_dishes,1401,404,-997
+door_open_close,1276,566,-710
+footsteps,2670,933,-1737
+keyboard_typing,1841,379,-1462
+keychain,1067,307,-760
+light_switch,456,105,-351
+microwave,990,216,-774
+phone_ringing,1009,283,-726
+running_water,1519,454,-1065
+toilet_flushing,768,123,-645
+vacuum_cleaner,799,196,-603
+wardrobe_drawer_open_close,789,429,-360
+window_open_close,593,86,-507

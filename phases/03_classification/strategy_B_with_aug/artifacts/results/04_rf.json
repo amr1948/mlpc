@@ -1,0 +1,271 @@
+{
+  "meta": {
+    "strategy": "B",
+    "model": "rf",
+    "notebook_id": "04",
+    "timestamp": "2026-05-14T18:00:57",
+    "random_seed": 42,
+    "training_seconds": {
+      "config_1_vanilla": 410.42
+    },
+    "n_train": 114526,
+    "n_val": 34245,
+    "n_test": 33828
+  },
+  "winning_config": {
+    "config_id": 2,
+    "description": "2 - vanilla RF + per-class thresholds tuned on val",
+    "thresholds": [
+      0.15,
+      0.26,
+      0.23,
+      0.18,
+      0.24,
+      0.24,
+      0.26,
+      0.05,
+      0.21,
+      0.19,
+      0.32,
+      0.3,
+      0.19,
+      0.11,
+      0.13
+    ],
+    "hyperparameters": {
+      "n_estimators": 200,
+      "max_depth": "None",
+      "min_samples_leaf": 2,
+      "class_weight": null
+    }
+  },
+  "val_scores_macro_f1": {
+    "config_1": 0.2922,
+    "config_2": 0.5008
+  },
+  "val_report": {
+    "bell_ringing": {
+      "precision": 0.4477,
+      "recall": 0.4188,
+      "f1": 0.4327,
+      "support": 480
+    },
+    "coffee_machine": {
+      "precision": 0.6408,
+      "recall": 0.507,
+      "f1": 0.5661,
+      "support": 1073
+    },
+    "cutlery_dishes": {
+      "precision": 0.5524,
+      "recall": 0.5481,
+      "f1": 0.5502,
+      "support": 1828
+    },
+    "door_open_close": {
+      "precision": 0.3358,
+      "recall": 0.3059,
+      "f1": 0.3201,
+      "support": 1177
+    },
+    "footsteps": {
+      "precision": 0.4451,
+      "recall": 0.5135,
+      "f1": 0.4769,
+      "support": 4033
+    },
+    "keyboard_typing": {
+      "precision": 0.755,
+      "recall": 0.6418,
+      "f1": 0.6938,
+      "support": 3107
+    },
+    "keychain": {
+      "precision": 0.6328,
+      "recall": 0.566,
+      "f1": 0.5976,
+      "support": 1553
+    },
+    "light_switch": {
+      "precision": 0.149,
+      "recall": 0.2714,
+      "f1": 0.1924,
+      "support": 140
+    },
+    "microwave": {
+      "precision": 0.5786,
+      "recall": 0.6227,
+      "f1": 0.5998,
+      "support": 2253
+    },
+    "phone_ringing": {
+      "precision": 0.6206,
+      "recall": 0.5759,
+      "f1": 0.5974,
+      "support": 2122
+    },
+    "running_water": {
+      "precision": 0.7357,
+      "recall": 0.7798,
+      "f1": 0.7571,
+      "support": 4151
+    },
+    "toilet_flushing": {
+      "precision": 0.6796,
+      "recall": 0.5067,
+      "f1": 0.5806,
+      "support": 967
+    },
+    "vacuum_cleaner": {
+      "precision": 0.6484,
+      "recall": 0.6997,
+      "f1": 0.6731,
+      "support": 2441
+    },
+    "wardrobe_drawer_open_close": {
+      "precision": 0.1775,
+      "recall": 0.3377,
+      "f1": 0.2327,
+      "support": 613
+    },
+    "window_open_close": {
+      "precision": 0.2188,
+      "recall": 0.2708,
+      "f1": 0.242,
+      "support": 421
+    },
+    "macro avg": {
+      "precision": 0.5079,
+      "recall": 0.5044,
+      "f1": 0.5008,
+      "support": 26359
+    },
+    "micro avg": {
+      "precision": 0.5739,
+      "recall": 0.5869,
+      "f1": 0.5803,
+      "support": 26359
+    },
+    "weighted avg": {
+      "precision": 0.5906,
+      "recall": 0.5869,
+      "f1": 0.5858,
+      "support": 26359
+    }
+  },
+  "test_report": {
+    "bell_ringing": {
+      "precision": 0.4736,
+      "recall": 0.5197,
+      "f1": 0.4956,
+      "support": 483
+    },
+    "coffee_machine": {
+      "precision": 0.6458,
+      "recall": 0.4587,
+      "f1": 0.5364,
+      "support": 1236
+    },
+    "cutlery_dishes": {
+      "precision": 0.5528,
+      "recall": 0.5736,
+      "f1": 0.563,
+      "support": 2045
+    },
+    "door_open_close": {
+      "precision": 0.3397,
+      "recall": 0.3491,
+      "f1": 0.3443,
+      "support": 1077
+    },
+    "footsteps": {
+      "precision": 0.4923,
+      "recall": 0.5082,
+      "f1": 0.5001,
+      "support": 4256
+    },
+    "keyboard_typing": {
+      "precision": 0.7279,
+      "recall": 0.5794,
+      "f1": 0.6452,
+      "support": 3333
+    },
+    "keychain": {
+      "precision": 0.6187,
+      "recall": 0.502,
+      "f1": 0.5543,
+      "support": 1474
+    },
+    "light_switch": {
+      "precision": 0.0717,
+      "recall": 0.2386,
+      "f1": 0.1102,
+      "support": 88
+    },
+    "microwave": {
+      "precision": 0.6251,
+      "recall": 0.6964,
+      "f1": 0.6588,
+      "support": 2579
+    },
+    "phone_ringing": {
+      "precision": 0.5815,
+      "recall": 0.6185,
+      "f1": 0.5994,
+      "support": 2076
+    },
+    "running_water": {
+      "precision": 0.714,
+      "recall": 0.8012,
+      "f1": 0.7551,
+      "support": 4190
+    },
+    "toilet_flushing": {
+      "precision": 0.7278,
+      "recall": 0.487,
+      "f1": 0.5835,
+      "support": 1076
+    },
+    "vacuum_cleaner": {
+      "precision": 0.5732,
+      "recall": 0.7786,
+      "f1": 0.6603,
+      "support": 1992
+    },
+    "wardrobe_drawer_open_close": {
+      "precision": 0.1761,
+      "recall": 0.4323,
+      "f1": 0.2503,
+      "support": 569
+    },
+    "window_open_close": {
+      "precision": 0.1987,
+      "recall": 0.2392,
+      "f1": 0.2171,
+      "support": 393
+    },
+    "macro avg": {
+      "precision": 0.5013,
+      "recall": 0.5188,
+      "f1": 0.4982,
+      "support": 26867
+    },
+    "micro avg": {
+      "precision": 0.569,
+      "recall": 0.5983,
+      "f1": 0.5832,
+      "support": 26867
+    },
+    "weighted avg": {
+      "precision": 0.591,
+      "recall": 0.5983,
+      "f1": 0.5884,
+      "support": 26867
+    }
+  },
+  "headline_test": {
+    "macro_f1": 0.4982,
+    "micro_f1": 0.5832,
+    "weighted_f1": 0.5884
+  }
+}

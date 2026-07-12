@@ -1,0 +1,147 @@
+STRATEGY B RETROSPECTIVE — AUDIO AUGMENTATION FOR CLASS-IMBALANCE
+==================================================================
+Status:  Closed. Failure
+
+
+1. GOAL
+-------
+Reduce the 24.5x maximum-to-minimum class imbalance in the segment-level
+training set, using audio-domain augmentation, in the hope of lifting
+macro F1 on rare classes (light_switch, bell_ringing, etc.).
+
+Strategy B was the audio-augmentation arm. Strategy A is the no-augmentation
+control, with class-weighted losses / sample weights doing all the
+imbalance lifting.
+
+
+2. WHAT WAS BUILT
+-----------------
+- Donor-event extraction: clean segments of rare-class events identified
+  via a high-pure-fraction filter, then grouped into events (not segments)
+  to avoid duplicating augmentation across the 50%-overlapping 1 s windows.
+
+- Per-class augmentation menu, tuned to event duration:
+  * Sustained events (bell_ringing, coffee_machine, toilet_flushing):
+    pitch shift, time stretch, gain, AddGaussianSNR.
+  * Transient events (light_switch): no time stretch (smears the impulse),
+    pitch shift / gain only.
+  * PolarityInversion: free for spectrogram-input models; kept for
+    waveform-input models.
+
+- Budget rule: synthetic-to-real ratio capped at 3x per class, to avoid
+  synthetic dilution.
+
+- Re-extraction of all 56 aggregated feature keys with the same features.py
+  used on real audio, preserving schema parity.
+
+Result of the pipeline (counts only, not performance):
+  * 5,205 new audio files generated
+  * 24,224 cumulative class-positive segments added across the 7 rare classes
+  * Imbalance max:min ratio: 24.5x -> 7.3x (segment counts)
+  * Six of seven rare classes within +/-10% of the dataset median (9,436)
+  * light_switch hit the 3x cap (1,047 -> 3,515)
+
+
+3. WHAT WAS FOUND (TEST MACRO F1, A vs B)
+-----------------------------------------
+                A          B          delta (B-A)    verdict
+  LogReg     0.4723     0.4749       +0.003          noise
+  Random Forest  0.5040 0.4982       -0.006          noise
+  XGBoost    0.5605     0.5564       -0.004          noise
+  MLP v2     0.5495     0.5534       +0.004          noise
+
+Delta range across four model families: [-0.006, +0.004]. Smaller than the
+seed-variance noise floor for any of these models. No family showed a
+significant lift from augmentation.
+
+Per-class deltas on the augmentation-targeted rare classes (XGBoost A vs B):
+  bell_ringing       3.40x aug   -0.052   regression (largest)
+  coffee_machine     1.36x aug   -0.004   noise
+  door_open_close    1.13x aug   +0.004   noise
+  light_switch       3.36x aug   -0.013   regression
+  toilet_flushing    1.47x aug   +0.004   noise
+  wardrobe_drawer    1.86x aug   -0.012   noise
+  window_open_close  2.78x aug   +0.036   small lift
+  ----------------------------------------------------------
+  Mean over 7 classes:           -0.005   net regression
+
+The two classes pushed hardest (3.4x and 3.36x) both regressed. The only
+clear lift came from window_open_close on XGBoost. The signal is incoherent.
+
+
+4. WHY IT FAILED (MECHANISM)
+----------------------------
+The 960-dimensional feature vector is built from four time aggregations
+(mean / std / min / max) of 14 base feature groups over each 1 s segment.
+That aggregation is a low-pass filter on time-domain perturbations.
+
+A pitch-shifted bell still produces nearly the same MFCC mean as the
+original bell, because the shift moves spectral energy by a fraction of a
+mel bin and averaging smooths the shift out. Time-stretching changes
+duration, which the aggregations also collapse. AddGaussianSNR raises the
+noise floor, but the mean and std absorb it.
+
+Consequence: the augmented feature vectors are statistically very close to
+the original ones, so they do not add new information to the training
+manifold. They behave like duplicated samples with mild jitter --
+equivalent to class-weighted training, which Strategy A already does.
+
+This is consistent across linear (LogReg), bagged-tree (RF), boosted-tree
+(XGB), and neural (MLP) inductive biases. The bottleneck is the feature
+representation, not the classifier.
+
+
+5. DECISION
+-----------
+Strategy B is closed. No further training runs on augmented features.
+
+The audio_aug/ files and the augmentation/ pipeline are kept on disk as
+read-only history for the report and for any future spectrogram-input model
+that bypasses the aggregation step. They are not the path forward for
+the aggregated-feature pipeline.
+
+
+6. WHAT TO DO INSTEAD
+---------------------
+Move from aggregated features to raw mel-spectrograms, where pitch shifts
+and time stretches are visible perturbations rather than averaged-out
+jitter. The next models in this project (CNN, LSTM, AST) operate on raw
+mel-spectrograms and can in principle exploit augmentation -- but the
+correct test of augmentation on those models is a separate experiment and
+not in scope here.
+
+Within the aggregated-feature pipeline, all imbalance lifting comes from:
+  * class_weight='balanced' for sklearn classifiers
+  * sqrt(inverse_freq)-clipped pos_weight for BCEWithLogitsLoss
+  * per-class threshold tuning on the validation set
+which together do the job that augmentation was supposed to do, and at
+much lower compute cost.
+
+
+7. WHY THIS IS A USEFUL NEGATIVE RESULT
+---------------------------------------
+The result is mechanistic, not accidental: aggregated features cannot
+exploit audio-domain augmentation. This is testable, reproducible across
+four model families, and explains why feature-domain SMOTE (the obvious
+alternative) would also be marginal -- both move on the manifold of
+*averages*, not the manifold of *real recordings*.
+
+For the final report, Strategy B is presented as a controlled negative
+experiment that motivates the move to spectrogram-input models. Sample
+size of trained models supporting the conclusion: 4 (LogReg, RF, XGB, MLP).
+
+
+8. NUMBERS FOR THE REPORT (PRE-WRITTEN ANCHORS)
+-----------------------------------------------
+"Audio augmentation produced 5,205 new files contributing 24,224 class-
+positive segments. The maximum-to-minimum segment-count ratio fell from
+24.5x to 7.3x. On test macro F1, however, the augmentation delta (B - A)
+across four model families (LogReg, RF, XGB, MLP) lay in [-0.006, +0.004],
+within seed-variance noise. The two classes pushed hardest by the
+augmentation budget (bell_ringing 3.4x and light_switch 3.36x) showed
+the largest regressions (-0.052 and -0.013) on the strongest classifier
+(XGBoost). We attribute the null result to the aggregation step in our
+feature pipeline: mean / std / min / max over a 1 s window low-pass-filters
+perturbations like pitch shift and time stretch, so augmented feature
+vectors lie close to their originals on the aggregated manifold and add
+little new information."

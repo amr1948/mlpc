@@ -1,0 +1,45 @@
+{
+  "best_config": {
+    "max_iter": 500,
+    "max_leaf_nodes": 31
+  },
+  "baseline_DT_val_macro_f1": 0.3073432871444402,
+  "HistGB_best_val_macro_f1_no_thresh": 0.4672200521129822,
+  "HistGB_best_val_macro_f1_tuned": 0.5537959802801534,
+  "baseline_DT_nht_macro_f1": 0.3163519200962065,
+  "HistGB_best_nht_macro_f1_tuned": 0.545049920524897,
+  "thresholds": [
+    0.15000000000000002,
+    0.21000000000000002,
+    0.19000000000000003,
+    0.13,
+    0.25000000000000006,
+    0.25000000000000006,
+    0.21000000000000002,
+    0.05,
+    0.19000000000000003,
+    0.27,
+    0.25000000000000006,
+    0.25000000000000006,
+    0.17000000000000004,
+    0.07,
+    0.11000000000000001
+  ],
+  "class_names": [
+    "bell_ringing",
+    "coffee_machine",
+    "cutlery_dishes",
+    "door_open_close",
+    "footsteps",
+    "keyboard_typing",
+    "keychain",
+    "light_switch",
+    "microwave",
+    "phone_ringing",
+    "running_water",
+    "toilet_flushing",
+    "vacuum_cleaner",
+    "wardrobe_drawer_open_close",
+    "window_open_close"
+  ]
+}

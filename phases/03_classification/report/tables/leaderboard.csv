@@ -1,0 +1,10 @@
+model_key,model,test_macro_f1_A,test_macro_f1_B,delta_B_A
+lstm,CRNN,0.6048,,
+cnn,CNN,0.6035,,
+ast,AST (linear probe),0.5859,,
+xgb,XGBoost,0.5605,0.5564,-0.0040999999999999925
+mlp_v2,MLP v2,0.5495,0.5534,0.0039000000000000146
+rf,Random Forest,0.504,0.4982,-0.005800000000000027
+logreg,Logistic Regression,0.4723,0.4749,0.002599999999999991
+mlp_v1,MLP v1,0.4143,0.4271,0.012799999999999978
+prior,Empirical Prior,0.0531,,
